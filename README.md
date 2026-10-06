@@ -20,8 +20,9 @@
 | [`immich-stub`](immich-stub/) | [Immich](https://immich.app) — self-hosted фото/видео | 3.2.4 |
 | [`nextcloud-stub`](nextcloud-stub/) | [Nextcloud](https://nextcloud.com) — self-hosted облако/файлы | 32.0.14 |
 | [`jellyfin-stub`](jellyfin-stub/) | [Jellyfin](https://jellyfin.org) — self-hosted медиа-сервер | 10.10.7 |
+| [`home-assistant-stub`](home-assistant-stub/) | [Home Assistant](https://www.home-assistant.io) — платформа умного дома | 2026.9.4 |
 
-_Планируется: Home Assistant._
+
 
 ## Установка
 
