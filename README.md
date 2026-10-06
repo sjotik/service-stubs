@@ -31,7 +31,7 @@ _Планируются: Jellyfin, Home Assistant._
 sudo DOMAIN=example.com \
      SSL_CERT=/etc/letsencrypt/live/example.com/fullchain.pem \
      SSL_KEY=/etc/letsencrypt/live/example.com/privkey.pem \
-     bash immich-stub/scripts/install.sh
+     bash <service>-stub/scripts/install.sh
 ```
 
 Для локального теста без TLS — `HTTP_ONLY=1 HTTP_PORT=8080`.
