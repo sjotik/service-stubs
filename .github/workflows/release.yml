@@ -1,0 +1,35 @@
+name: Build stub archives
+
+# Срабатывает на пуш тега вида v* (напр. v2026.10.06): пакует каждую заглушку
+# в <service>-stub.tar.gz и создаёт релиз с этими архивами.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Package stubs
+        run: |
+          mkdir -p dist
+          for d in immich-stub jellyfin-stub nextcloud-stub home-assistant-stub; do
+            if [ -d "$d" ]; then
+              tar czf "dist/${d}.tar.gz" "$d"
+              echo "собрал dist/${d}.tar.gz"
+            fi
+          done
+          ls -la dist
+
+      - name: Create release and upload archives
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+          generate_release_notes: true

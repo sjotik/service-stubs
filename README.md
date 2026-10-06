@@ -55,3 +55,42 @@ sudo DOMAIN=example.com \
   VERSION                      # имитируемая версия
   README.md
 ```
+
+## Раскатка на сервере (из релизов)
+
+Каждая заглушка публикуется отдельным архивом `<service>-stub.tar.gz` в
+[релизах](../../releases) (собираются автоматически из тега, см. ниже). На сервер нужна
+одна заглушка, поэтому тянем только её — скриптом `deploy.sh`.
+
+`deploy.sh` сам скачивает нужный архив, распаковывает и запускает `install.sh`:
+
+```bash
+# один раз скачать deploy.sh
+curl -H "Authorization: Bearer <TOKEN>" -sSL \
+  https://raw.githubusercontent.com/sjotik/service-stubs/main/deploy.sh -o deploy.sh
+
+# раскатать заглушку одной командой (от root)
+sudo TOKEN=<TOKEN> DOMAIN=cloud.example.ru \
+     SSL_CERT=/etc/letsencrypt/live/cloud.example.ru/fullchain.pem \
+     SSL_KEY=/etc/letsencrypt/live/cloud.example.ru/privkey.pem \
+     bash deploy.sh immich
+```
+
+- `<service>`: `immich` | `jellyfin` | `nextcloud` | `home-assistant` (последний аргумент).
+- `TOKEN` — fine-grained PAT с доступом `Contents: read` на этот (приватный) репозиторий.
+- `REF` — какой релиз брать: `latest` (по умолчанию) или конкретный тег, напр.
+  `REF=v2026.10.06`.
+- Локальный тест без TLS: `... HTTP_ONLY=1 HTTP_PORT=8080 bash deploy.sh immich`.
+- Обновление — повторить ту же команду (новый релиз подтянется; `install.sh` идемпотентен).
+
+## Релизы и сборка архивов (CI)
+
+Архивы собираются GitHub Actions (`.github/workflows/release.yml`) на **пуш тега** `v*`:
+
+```bash
+git tag v2026.10.06
+git push origin v2026.10.06
+```
+
+Workflow пакует каждую `*-stub/` в `*-stub.tar.gz` и создаёт релиз с этими архивами.
+Так у каждого релиза — своя версия снимков; `deploy.sh` по умолчанию берёт `latest`.
