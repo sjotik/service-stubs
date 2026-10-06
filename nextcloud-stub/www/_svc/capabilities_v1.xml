@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<ocs>
+ <meta>
+  <status>ok</status>
+  <statuscode>100</statuscode>
+  <message>OK</message>
+ </meta>
+ <data>
+  <version>
+   <major>32</major>
+   <minor>0</minor>
+   <micro>14</micro>
+   <string>32.0.14</string>
+   <edition></edition>
+   <extendedSupport></extendedSupport>
+  </version>
+  <capabilities>
+   <bruteforce>
+    <delay>25000</delay>
+    <allow-listed></allow-listed>
+   </bruteforce>
+   <app_api>
+    <version>32.0.0</version>
+   </app_api>
+   <theming>
+    <name>Nextcloud</name>
+    <productName>Nextcloud</productName>
+    <url>https://nextcloud.com</url>
+    <slogan>a safe home for all your data</slogan>
+    <color>#00679e</color>
+    <color-text>#ffffff</color-text>
+    <color-element>#00679e</color-element>
+    <color-element-bright>#00679e</color-element-bright>
+    <color-element-dark>#00679e</color-element-dark>
+    <logo>https://NCSTUB_HOST/core/img/logo/logo.svg?v=0</logo>
+    <background>https://NCSTUB_HOST/apps/theming/img/background/jo-myoung-hee-fluid.webp</background>
+    <background-text>#ffffff</background-text>
+    <background-plain></background-plain>
+    <background-default>1</background-default>
+    <logoheader>https://NCSTUB_HOST/core/img/logo/logo.svg?v=0</logoheader>
+    <favicon>https://NCSTUB_HOST/core/img/logo/logo.svg?v=0</favicon>
+   </theming>
+  </capabilities>
+ </data>
+</ocs>

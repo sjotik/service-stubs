@@ -1,0 +1,1 @@
+import{n as e}from"../chunks/hePW80VL.js";import{t}from"../chunks/B15YOz6v.js";import{t as n}from"../chunks/DxhPVHKV.js";var r=e({load:()=>i}),i=(()=>n(307,t.sharedLinks()));export{r as universal};

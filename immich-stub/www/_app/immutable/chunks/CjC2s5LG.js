@@ -1,0 +1,1 @@
+import{fn as e}from"./BgnT2xvH.js";import"./BT4NrBLN.js";var t=e({isDragging:!1,files:[]});export{t};

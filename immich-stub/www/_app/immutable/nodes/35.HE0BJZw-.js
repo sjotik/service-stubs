@@ -1,0 +1,1 @@
+import{n as e}from"../chunks/hePW80VL.js";import"../chunks/BgnT2xvH.js";import"../chunks/xihTtKlq.js";import"../chunks/CNVSbraG.js";import{t}from"../chunks/3_zjNs5E.js";import{r as n}from"../chunks/DQEneGUi.js";var r=e({load:()=>i}),i=(async({url:e})=>(await t(e),{meta:{title:(await n())(`shared_links`)}}));function a(e){}export{a as component,r as universal};

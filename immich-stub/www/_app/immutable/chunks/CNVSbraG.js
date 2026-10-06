@@ -1,0 +1,1 @@
+import{Sn as e}from"./BgnT2xvH.js";e();
