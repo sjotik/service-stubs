@@ -15,6 +15,10 @@
 #
 #  Локальный тест без TLS:
 #    sudo TOKEN=<pat> DOMAIN=localhost HTTP_ONLY=1 HTTP_PORT=8080 bash deploy.sh immich
+#
+#  За фронт-прокси (xray/3x-ui), заглушка на loopback без TLS:
+#    sudo TOKEN=<pat> DOMAIN=photos.sjotik.uk HTTP_ONLY=1 LISTEN_ADDR=127.0.0.1 HTTP_PORT=8443 \
+#         bash deploy.sh immich
 # =====================================================================
 set -euo pipefail
 

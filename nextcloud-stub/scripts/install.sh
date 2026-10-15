@@ -34,6 +34,7 @@ INSTALL_DIR="${INSTALL_DIR:-/var/www/nc-stub/www}"
 NGINX_ETC="${NGINX_ETC:-/etc/nginx}"
 HTTP_ONLY="${HTTP_ONLY:-0}"
 HTTP_PORT="${HTTP_PORT:-80}"
+LISTEN_ADDR="${LISTEN_ADDR:-}"   # адрес прослушивания в HTTP_ONLY: напр. 127.0.0.1 (loopback); пусто=все интерфейсы
 ENABLE_CRON="${ENABLE_CRON:-1}"
 MAJOR_POLICY="${MAJOR_POLICY:-same}"
 CRON_SCHEDULE="${CRON_SCHEDULE:-17 4 * * 1}"   # раз в неделю (пн 04:17); напр. месяц: "17 4 1 * *"
@@ -110,13 +111,20 @@ if [ ! -d "$NGINX_ETC/sites-available" ]; then
     mkdir -p "$NGINX_ETC/conf.d"
 fi
 info "пишу конфиг сайта: $CONF_OUT"
+# слушающие директивы для HTTP_ONLY: по умолчанию все интерфейсы (v4+v6);
+# LISTEN_ADDR (напр. 127.0.0.1) -> слушать только этот адрес (loopback под фронт-прокси/xray).
+if [ -n "$LISTEN_ADDR" ]; then
+    LISTEN_DIRECTIVES="    listen ${LISTEN_ADDR}:${HTTP_PORT};"
+else
+    LISTEN_DIRECTIVES="    listen ${HTTP_PORT};
+    listen [::]:${HTTP_PORT};"
+fi
 if [ "$HTTP_ONLY" = "1" ]; then
     cat > "$CONF_OUT" <<EOF
 # Nextcloud-заглушка (локальный режим HTTP, без TLS).
 include snippets/ncstub_maps.conf;
 server {
-    listen $HTTP_PORT;
-    listen [::]:$HTTP_PORT;
+$LISTEN_DIRECTIVES
     server_name $DOMAIN;
     include snippets/ncstub_locations.conf;
 }

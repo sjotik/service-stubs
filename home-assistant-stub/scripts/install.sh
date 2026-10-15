@@ -35,6 +35,7 @@ INSTALL_DIR="${INSTALL_DIR:-/var/www/home-assistant-stub/www}"
 NGINX_ETC="${NGINX_ETC:-/etc/nginx}"
 HTTP_ONLY="${HTTP_ONLY:-0}"
 HTTP_PORT="${HTTP_PORT:-80}"
+LISTEN_ADDR="${LISTEN_ADDR:-}"   # адрес прослушивания в HTTP_ONLY: напр. 127.0.0.1 (loopback); пусто=все интерфейсы
 INSTALL_NGINX="${INSTALL_NGINX:-0}"
 FORCE="${FORCE:-0}"
 DISABLE_DEFAULT_SITE="${DISABLE_DEFAULT_SITE:-0}"
@@ -82,6 +83,14 @@ if [ "$HTTP_ONLY" != "1" ]; then
 fi
 
 LISTEN_PORT=443; [ "$HTTP_ONLY" = "1" ] && LISTEN_PORT="$HTTP_PORT"
+# слушающие директивы для HTTP_ONLY: по умолчанию все интерфейсы (v4+v6);
+# LISTEN_ADDR (напр. 127.0.0.1) -> слушать только этот адрес (loopback под фронт-прокси/xray).
+if [ -n "$LISTEN_ADDR" ]; then
+    LISTEN_DIRECTIVES="    listen ${LISTEN_ADDR}:${HTTP_PORT};"
+else
+    LISTEN_DIRECTIVES="    listen ${HTTP_PORT};
+    listen [::]:${HTTP_PORT};"
+fi
 
 # ---------- проверка конфликтов по домену/порту (до записи конфига) ----------
 # Ищем server_name == DOMAIN в чужих активных конфигах (свой — по имени файла — пропускаем).
@@ -120,8 +129,7 @@ if [ "$HTTP_ONLY" = "1" ]; then
     cat > "$CONF_OUT" <<EOF
 # Home Assistant-заглушка (локальный режим HTTP, без TLS).
 server {
-    listen $HTTP_PORT;
-    listen [::]:$HTTP_PORT;
+$LISTEN_DIRECTIVES
     server_name $DOMAIN;
     include snippets/hastub_locations.conf;
 }
