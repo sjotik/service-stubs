@@ -16,19 +16,52 @@
 #  Локальный тест без TLS:
 #    sudo TOKEN=<pat> DOMAIN=localhost HTTP_ONLY=1 HTTP_PORT=8080 bash deploy.sh immich
 #
-#  За фронт-прокси (xray/3x-ui), заглушка на loopback без TLS:
-#    sudo TOKEN=<pat> DOMAIN=photos.sjotik.uk HTTP_ONLY=1 LISTEN_ADDR=127.0.0.1 HTTP_PORT=8443 \
-#         bash deploy.sh immich
+#  За фронт-прокси (xray/3x-ui, SNI-passthrough), свой серт на loopback-порту:
+#    sudo TOKEN=<pat> DOMAIN=photos.sjotik.uk SSL_CERT=/…/fullchain.pem SSL_KEY=/…/privkey.pem \
+#         LISTEN_ADDR=127.0.0.1 PORT=8443 bash deploy.sh immich
 # =====================================================================
 set -euo pipefail
+
+usage() { cat <<'USAGE'
+deploy.sh — скачать заглушку <service> из релиза sjotik/service-stubs и установить её.
+
+Использование (от root):
+  sudo TOKEN=<pat> DOMAIN=... [SSL_CERT=... SSL_KEY=...] [LISTEN_ADDR=... PORT=...] bash deploy.sh <service>
+
+Аргумент (ОБЯЗАТЕЛЕН):
+  <service>    immich | jellyfin | nextcloud | home-assistant
+
+ОБЯЗАТЕЛЬНЫЕ переменные:
+  TOKEN        fine-grained GitHub PAT (Contents: read на приватный репозиторий)
+  DOMAIN       имя сайта (server_name)
+  SSL_CERT     fullchain-сертификат   (обязателен, кроме HTTP_ONLY=1)
+  SSL_KEY      приватный ключ          (обязателен, кроме HTTP_ONLY=1)
+
+НЕОБЯЗАТЕЛЬНЫЕ:
+  LISTEN_ADDR  адрес прослушивания (напр. 127.0.0.1); пусто = все интерфейсы
+  PORT         порт (по умолчанию 443 TLS / 80 HTTP_ONLY)
+  HTTP_ONLY=1  plain HTTP без TLS (SSL_* не нужны)
+  REF          релиз: latest (по умолчанию) или тег, напр. v2026.10.16
+  REPO         репозиторий (по умолчанию sjotik/service-stubs)
+  (прочие переменные install.sh пробрасываются как есть: INSTALL_DIR, FORCE, ...)
+
+ПРИМЕРЫ:
+  # за xray (SNI-passthrough): свой серт на loopback-порту
+  sudo TOKEN=<pat> DOMAIN=photos.sjotik.uk SSL_CERT=/…/fullchain.pem SSL_KEY=/…/privkey.pem \
+       LISTEN_ADDR=127.0.0.1 PORT=8443 bash deploy.sh immich
+  # standalone TLS на :443
+  sudo TOKEN=<pat> DOMAIN=cloud.sjotik.uk SSL_CERT=/…/fullchain.pem SSL_KEY=/…/privkey.pem bash deploy.sh nextcloud
+USAGE
+}
 
 REPO="${REPO:-sjotik/service-stubs}"
 REF="${REF:-latest}"
 SVC="${1:-}"
 
 case "$SVC" in
+    -h|--help|help) usage; exit 0 ;;
     immich|jellyfin|nextcloud|home-assistant) ;;
-    *) echo "ОШИБКА: укажите сервис: immich | jellyfin | nextcloud | home-assistant" >&2; exit 1 ;;
+    *) echo "ОШИБКА: укажите сервис: immich | jellyfin | nextcloud | home-assistant" >&2; echo >&2; usage >&2; exit 1 ;;
 esac
 [ -n "${TOKEN:-}" ] || { echo "ОШИБКА: не задан TOKEN (fine-grained PAT, Contents: read на $REPO)" >&2; exit 1; }
 command -v curl    >/dev/null || { echo "ОШИБКА: нет curl" >&2; exit 1; }

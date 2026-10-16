@@ -26,6 +26,38 @@
 # =====================================================================
 set -euo pipefail
 
+usage() { cat <<'USAGE'
+Установка Immich-заглушки на nginx. Параметры передаются переменными окружения.
+
+ОБЯЗАТЕЛЬНЫЕ:
+  DOMAIN       имя сайта (server_name), напр. example.ru
+  SSL_CERT     путь к fullchain-сертификату   (обязателен, кроме HTTP_ONLY=1)
+  SSL_KEY      путь к приватному ключу         (обязателен, кроме HTTP_ONLY=1)
+
+НЕОБЯЗАТЕЛЬНЫЕ:
+  LISTEN_ADDR  адрес прослушивания, напр. 127.0.0.1 (loopback под фронт-прокси).
+               Пусто = все интерфейсы (v4+v6).
+  PORT         порт прослушивания. По умолчанию 443 (TLS) или 80 (HTTP_ONLY).
+  HTTP_ONLY=1  plain HTTP без TLS (SSL_CERT/SSL_KEY не нужны).
+  HTTP_PORT    старый алиас PORT для HTTP_ONLY (по умолчанию 80).
+  INSTALL_DIR  куда положить статику (по умолчанию /var/www/immich-stub/www).
+  INSTALL_NGINX=1        поставить nginx через apt, если его нет (иначе — стоп).
+  FORCE=1               игнорировать конфликт по домену/порту.
+  DISABLE_DEFAULT_SITE=1  отключить дефолтный сайт nginx.
+  RELOAD_CMD   команда перезагрузки (по умолчанию: systemctl reload nginx).
+
+ПРИМЕРЫ:
+  # standalone TLS на :443 (+ редирект с :80)
+  sudo DOMAIN=cloud.example.ru SSL_CERT=/…/fullchain.pem SSL_KEY=/…/privkey.pem bash scripts/install.sh
+  # за xray (SNI-passthrough): свой серт на loopback-порту
+  sudo DOMAIN=cloud.example.ru SSL_CERT=/…/fullchain.pem SSL_KEY=/…/privkey.pem \
+       LISTEN_ADDR=127.0.0.1 PORT=8443 bash scripts/install.sh
+  # локальный тест без TLS
+  sudo DOMAIN=localhost HTTP_ONLY=1 PORT=8080 bash scripts/install.sh
+USAGE
+}
+case "${1:-}" in -h|--help|help) usage; exit 0;; esac
+
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # каталог immich-stub
 
 DOMAIN="${DOMAIN:-}"
@@ -82,15 +114,22 @@ if [ "$HTTP_ONLY" != "1" ]; then
     { [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; } || die "сертификат/ключ не найдены: SSL_CERT=$SSL_CERT SSL_KEY=$SSL_KEY"
 fi
 
-LISTEN_PORT=443; [ "$HTTP_ONLY" = "1" ] && LISTEN_PORT="$HTTP_PORT"
-
-# слушающие директивы для HTTP_ONLY: по умолчанию все интерфейсы (v4+v6);
-# LISTEN_ADDR (напр. 127.0.0.1) -> слушать только этот адрес (loopback под фронт-прокси/xray).
-if [ -n "$LISTEN_ADDR" ]; then
-    LISTEN_DIRECTIVES="    listen ${LISTEN_ADDR}:${HTTP_PORT};"
+# режим/порт/ssl: TLS -> :443 ssl (дефолт); HTTP_ONLY -> :80 без ssl.
+# PORT задаёт порт прослушивания; HTTP_PORT — старый алиас (только HTTP_ONLY).
+# LISTEN_ADDR (напр. 127.0.0.1) -> слушать только этот адрес (loopback под фронт-прокси/xray),
+# пусто -> все интерфейсы (v4+v6).
+LOC_SNIPPET="imstub_locations.conf"
+MAPS_SNIPPET="imstub_maps.conf"
+if [ "$HTTP_ONLY" = "1" ]; then
+    LISTEN_PORT="${PORT:-${HTTP_PORT:-80}}"; SSL_SFX=""
 else
-    LISTEN_DIRECTIVES="    listen ${HTTP_PORT};
-    listen [::]:${HTTP_PORT};"
+    LISTEN_PORT="${PORT:-443}"; SSL_SFX=" ssl"
+fi
+if [ -n "$LISTEN_ADDR" ]; then
+    LISTEN_DIRECTIVES="    listen ${LISTEN_ADDR}:${LISTEN_PORT}${SSL_SFX};"
+else
+    LISTEN_DIRECTIVES="    listen ${LISTEN_PORT}${SSL_SFX};
+    listen [::]:${LISTEN_PORT}${SSL_SFX};"
 fi
 
 # ---------- проверка конфликтов по домену/порту (до записи конфига) ----------
@@ -125,23 +164,35 @@ if [ ! -d "$NGINX_ETC/sites-available" ]; then
     CONF_OUT="$NGINX_ETC/conf.d/$CONF_NAME"
     mkdir -p "$NGINX_ETC/conf.d"
 fi
-info "пишу конфиг сайта: $CONF_OUT (listen $LISTEN_PORT)"
-if [ "$HTTP_ONLY" = "1" ]; then
-    cat > "$CONF_OUT" <<EOF
-# Immich-заглушка (локальный режим HTTP, без TLS).
-include snippets/imstub_maps.conf;
+info "пишу конфиг сайта: $CONF_OUT (listen ${LISTEN_ADDR:+$LISTEN_ADDR:}${LISTEN_PORT}${SSL_SFX})"
+: > "$CONF_OUT"
+[ -n "$MAPS_SNIPPET" ] && echo "include snippets/$MAPS_SNIPPET;" >> "$CONF_OUT"
+# HTTP->HTTPS редирект на :80 — только для standalone TLS (дефолт 443, все интерфейсы).
+if [ "$HTTP_ONLY" != "1" ] && [ -z "$LISTEN_ADDR" ] && [ "$LISTEN_PORT" = "443" ]; then
+    cat >> "$CONF_OUT" <<'REDIR'
 server {
-$LISTEN_DIRECTIVES
-    server_name $DOMAIN;
-    include snippets/imstub_locations.conf;
+    listen 80;
+    listen [::]:80;
+    server_name __REDIR_DOMAIN__;
+    server_tokens off;
+    return 301 https://$host$request_uri;
 }
-EOF
-else
-    sed -e "s/IMSTUB_DOMAIN/$(esc "$DOMAIN")/g" \
-        -e "s/IMSTUB_SSL_CERT/$(esc "$SSL_CERT")/g" \
-        -e "s/IMSTUB_SSL_KEY/$(esc "$SSL_KEY")/g" \
-        "$SRC/nginx/$CONF_NAME" > "$CONF_OUT"
+REDIR
 fi
+{
+    echo "server {"
+    printf '%s
+' "$LISTEN_DIRECTIVES"
+    echo "    server_name $DOMAIN;"
+    if [ "$HTTP_ONLY" != "1" ]; then
+        echo "    ssl_certificate     $SSL_CERT;"
+        echo "    ssl_certificate_key $SSL_KEY;"
+        echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+    fi
+    echo "    include snippets/$LOC_SNIPPET;"
+    echo "}"
+} >> "$CONF_OUT"
+sed -i "s/__REDIR_DOMAIN__/$(esc "$DOMAIN")/" "$CONF_OUT"
 
 # симлинк в sites-enabled (Debian), идемпотентно
 if [ -d "$NGINX_ETC/sites-enabled" ]; then
